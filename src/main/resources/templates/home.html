@@ -51,9 +51,26 @@
 
 	<script type="text/javascript">
 		window.addEventListener('load', function() {
-			retrieveToken();
+			let xcsrf = getCookie("x-csrf-token");
+			$("#blog-save-btn").before('<input type="hidden" name="token" value="' + xcsrf + '">');
 			checkStatus();
 		});
+
+		function getCookie(cname) {
+			var name = cname + "=";
+			var decodedCookie = decodeURIComponent(document.cookie);
+			var ca = decodedCookie.split(';');
+			for (var i = 0; i < ca.length; i++) {
+				var c = ca[i];
+				while (c.charAt(0) == ' ') {
+					c = c.substring(1);
+				}
+				if (c.indexOf(name) == 0) {
+					return c.substring(name.length, c.length);
+				}
+			}
+			return "";
+		}
 
 		function checkStatus() {
 			var error = document.getElementById("failed-error");
@@ -82,23 +99,6 @@
 				return '';
 
 			return decodeURIComponent(results[2].replace(/\+/g, ' '));
-		}
-
-		function retrieveToken() {
-			console.log('Retrieving token...');
-			$.ajax({
-				type : "GET",
-				url : "/token",
-				contentType : "text/json",
-				success : function(data) {
-					console.log("retrieved token.. ", data);
-					$("#blog-save-btn").before(
-							'<input type="hidden" name="token" value="' + data + '">');
-				},
-				error : function() {
-					console.log("failed to get token...");
-				}
-			});
 		}
 	</script>
 </body>

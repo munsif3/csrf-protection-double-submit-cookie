@@ -26,7 +26,8 @@ public class MainController {
 	/**
 	 * Handles Login request. Generates sessionCookie for keeping track of the
 	 * session. Generates userCookie to keep track of the user who interacts with
-	 * the application.
+	 * the application. Generates CSRF token cookie which will be used as the hidden
+	 * field for "double submit"
 	 * 
 	 * @param credentials
 	 * @param response
@@ -41,8 +42,10 @@ public class MainController {
 			logger.debug("Successfully authenticated/validated user...");
 			Cookie sessionCookie = new Cookie("sessionID", authenticationService.generateSessionId(username));
 			Cookie userCookie = new Cookie("username", username);
+			Cookie csrfTokenCookie = new Cookie("x-csrf-token", authenticationService.generateToken());
 			response.addCookie(sessionCookie);
 			response.addCookie(userCookie);
+			response.addCookie(csrfTokenCookie);
 			return "redirect:/";
 		}
 		logger.debug("Failed to authenticate user...");
@@ -61,21 +64,14 @@ public class MainController {
 	 */
 	@PostMapping("/blog")
 	public String blog(@ModelAttribute Blog blog, HttpServletRequest request) {
-		Cookie[] cookies = request.getCookies();
-		String blogToken = blog.getToken();
+        logger.info("Request received for Add Blog..." + blog.toString());
 
-		String sessionId = authenticationService.sessionIdFromCookies(cookies);
-
-		if (authenticationService.isAuthenticated(cookies)) {
-			if (authenticationService.validateCSRFToken(sessionId, blogToken)) {
-				logger.debug("Blog post successful. Session Token is validated...");
-				return "redirect:/home?status=success";
-			} else {
-				logger.debug("Session Token is Invalid...");
-			}
-		}
-		logger.debug("Session Cookie is Invalid...");
-		return "redirect:/home?status=failed";
+        if (authenticationService.isAuthenticated(request.getCookies(), blog.getToken())){
+            logger.error("Successfully user authenticated..");
+            return "redirect:/home?status=success";
+        }
+        logger.error("User not authenticated...!");
+        return "redirect:/home?status=failed";
 	}
 
 }

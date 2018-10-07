@@ -1,6 +1,8 @@
 package com.munsif.ssd.csrfdoublesubmit.service;
 
 import java.security.NoSuchAlgorithmException;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.UUID;
 
 import javax.servlet.http.Cookie;
@@ -53,6 +55,8 @@ public class AuthenticationService {
 	 * @return
 	 */
 	public boolean isAuthenticated(Cookie[] cookies) {
+		int l = cookies != null ? cookies.length : -1;
+		logger.debug("isAuthenticated one param! " + l);
 		String session = "";
 		String username = "";
 
@@ -66,6 +70,35 @@ public class AuthenticationService {
 			}
 		}
 		return (isUserSessionValid(username, session));
+	}
+
+	/**
+	 * Checks if the logged in user is already authenticated by checking the cookies
+	 * that came along the request. Extracts the session Id and the username from
+	 * the two cookies (if available), and also the X-CSRF-Token.
+	 * 
+	 * @param cookies
+	 * @return
+	 */
+	public boolean isAuthenticated(Cookie[] cookies, String csrfToken) {
+		logger.debug("isAuthenticated? " + cookies.length + ", " + csrfToken);
+		Map<String, String> cookieStore = new HashMap<>();
+		if (cookies != null && cookies.length > 0) {
+			for (Cookie cookie : cookies) {
+				cookieStore.put(cookie.getName(), cookie.getValue());
+			}
+		}
+		
+		logger.debug("Cookie store size , " + cookieStore.size());
+
+		// Check if the user session is valid and if the both the csrf tokens match
+		if (isUserSessionValid(cookieStore.get("username"), cookieStore.get("sessionID"))
+				&& validateCSRFToken(cookieStore.get("x-csrf-token"), csrfToken)) {
+			logger.info("Token validated...");
+			return true;
+		}
+
+		return false;
 	}
 
 	/**
@@ -95,14 +128,21 @@ public class AuthenticationService {
 		logger.debug("Generating user session...");
 		User credentials = userCredentialsStore.findCredentials(username);
 		String sessionId = UUID.randomUUID().toString();
-		String token = UUID.randomUUID().toString();
 
 		credentials.setSessionID(sessionId);
-		credentials.setToken(token);
 		userCredentialsStore.addCredentials(credentials);
 
 		logger.debug("Storing user session...");
 		return sessionId;
+	}
+
+	/**
+	 * Generate a CSRF token and return
+	 * 
+	 * @return
+	 */
+	public String generateToken() {
+		return UUID.randomUUID().toString();
 	}
 
 	/**
@@ -123,17 +163,13 @@ public class AuthenticationService {
 	}
 
 	/**
-	 * Validates the CSRF token by checking if the given token is the same as what
-	 * is available in the Token Store HashMap
-	 * 
-	 * @param sessionID
-	 * @param token
+	 * Validates if the CSRF token is valid
+	 *
+	 * @param tokenFromCookie
+	 * @param tokenFromForm
 	 * @return
 	 */
-	public boolean validateCSRFToken(String sessionID, String token) {
-		if (null != token) {
-			return token.equals(userCredentialsStore.findTokenForSession(sessionID));
-		}
-		return false;
+	public boolean validateCSRFToken(String tokenFromCookie, String tokenFromForm) {
+		return (tokenFromCookie.equals(tokenFromForm));
 	}
 }
